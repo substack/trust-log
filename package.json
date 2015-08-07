@@ -7,16 +7,20 @@
     "sodium": "sodium-browserify"
   },
   "dependencies": {
+    "buffer-equals": "^1.0.3",
     "hyperlog": "^4.5.0",
     "hyperlog-index": "^2.0.0",
     "isarray": "~0.0.1",
+    "read-only-stream": "^1.1.1",
     "sodium": "^1.0.21",
     "sodium-browserify": "~0.0.0",
-    "subleveldown": "^2.0.0"
+    "subleveldown": "^2.0.0",
+    "through2": "^2.0.0"
   },
   "devDependencies": {
     "level": "^1.3.0",
     "memdb": "^1.0.1",
+    "minimist": "^1.1.3",
     "tape": "^4.0.3"
   },
   "scripts": {

@@ -2,6 +2,9 @@ var hyperlog = require('hyperlog')
 var hindex = require('hyperlog-index')
 var sodium = require('sodium').api
 var sub = require('subleveldown')
+var eq = require('buffer-equals')
+var through = require('through2')
+var readonly = require('read-only-stream')
 
 module.exports = TrustLog
 
@@ -112,6 +115,40 @@ TrustLog.prototype.revoke = function (id, opts, cb) {
       })
     })
   })
+}
+
+TrustLog.prototype.trusted = function (cb) {
+  if (!cb) cb = noop
+  var self = this
+  var output = through.obj()
+ 
+  self.log.ready(function () {
+    self.log.heads(function (err, heads) {
+      if (err) return cb(err)
+      var pending = 1
+      heads.forEach(function (head) {
+        var tx = self.dex.transaction(head.key)
+        var r = tx.createReadStream('trust!' + head.key)
+ 
+        pending ++
+        r.pipe(output, { end: false })
+        r.on('end', done)
+      })
+      done()
+      function done () {
+        if (--pending === 0) output.push(null)
+      }
+    })
+  })
+  return readonly(output)
+}
+
+TrustLog.prototype.verify = function (node, cb) {
+  if (!node.signature) return cb(null, false)
+  if (!eq(node.identity, keys.publicKey)) return cb(null, false)
+  var bkey = Buffer(node.key, 'hex')
+  var m = sodium.crypto_sign_open(node.signature, node.identity)
+  cb(null, eq(m, bkey))
 }
 
 function notFound (err) {

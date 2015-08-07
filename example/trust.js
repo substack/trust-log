@@ -2,8 +2,10 @@ var trust = require('../');
 var level = require('level')
 var sub = require('subleveldown')
 var sodium = require('sodium').api
+var minimist = require('minimist')
+var argv = minimist(process.argv.slice(2))
 
-var db = level('/tmp/trust.db', { valueEncoding: 'json' })
+var db = level(argv.d, { valueEncoding: 'json' })
 
 db.get('key', function (err, keypair) {
   if (keypair) return ready(keypair)
@@ -17,20 +19,22 @@ db.get('key', function (err, keypair) {
 function ready (keypair) {
   var log = trust(sub(db, 'trust'), keypair)
 
-  if (process.argv[2] === 'trust') {
-    var id = process.argv[3]
+  if (argv._[0] === 'trust') {
+    var id = argv._[1]
     log.trust(id, function (err) {
       if (err) console.error(err)
     })
-  }
-  else if (process.argv[2] === 'revoke') {
-    var id = process.argv[3]
+  } else if (argv._[0] === 'revoke') {
+    var id = argv._[1]
     log.trust(id, function (err) {
       if (err) console.error(err)
     })
-  }
-  else if (process.argv[2] === 'id') {
+  } else if (argv._[0] === 'id') {
     console.log(keypair.publicKey.toString('hex'))
+  } else if (argv._[0] === 'trusted') {
+    log.trusted(function (err, ids) {
+      ids.forEach(console.log.bind(console))
+    })
   }
 }
 
