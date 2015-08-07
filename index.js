@@ -1,23 +1,26 @@
 var hyperlog = require('hyperlog')
 var hindex = require('hyperlog-index')
 var sodium = require('sodium').api
-var sub = require('sublevel')
+var sub = require('subleveldown')
 
 module.exports = TrustLog
 
 function TrustLog (db, opts) {
   if (!(this instanceof TrustLog)) return new TrustLog(db, opts)
   if (!opts) opts = {}
-  this.log = hyperlog(sub('l', db), {
+  this.log = hyperlog(sub(db, 'l'), {
     valueEncoding: 'json',
     sign: function (node, cb) {
+      if (opts.sign) opts.sign(node, cb)
+      else cb(new Error('cannot sign messages when opts.sign not provided'))
     },
     verify: function (node, cb) {
+      
     }
   })
   this.dex = hindex(
     this.log,
-    sub('i', db, { valueEncoding: 'json' }),
+    sub(db, 'i', { valueEncoding: 'json' }),
     indexer
   )
 
@@ -29,7 +32,7 @@ function TrustLog (db, opts) {
             next()
           })
         }
-        else if if (err) next(err)
+        else if (err) next(err)
         else next(new Error('cannot re-trust a previously revoked key'))
       })
     }
@@ -59,7 +62,10 @@ TrustLog.prototype.trust = function (id, opts, cb) {
   }
   if (!opts) opts = {}
   if (!cb) cb = noop
-  var value = { op: 'trust', id: id }
+  var value = {
+    op: 'trust',
+    id: typeof id === 'string' ? id : id.toString('hex')
+  }
   if (opts.external) value.external = [].concat(opts.external)
   if (opts.time) value.time = opts.time && typeof opts.time === 'object'
     ? opts.time.getTime() : opts.time
@@ -87,7 +93,10 @@ TrustLog.prototype.revoke = function (id, opts, cb) {
   if (!opts) opts = {}
   if (!cb) cb = noop
  
-  var value = { op: 'revoke', id: id }
+  var value = {
+    op: 'revoke',
+    id: typeof id === 'string' ? id : id.toString('hex')
+  }
   if (opts.external) value.external = [].concat(opts.external)
   if (opts.time) value.time = opts.time && typeof opts.time === 'object'
     ? opts.time.getTime() : opts.time
