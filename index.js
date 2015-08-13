@@ -5,6 +5,8 @@ var sub = require('subleveldown')
 var eq = require('buffer-equals')
 var through = require('through2')
 var readonly = require('read-only-stream')
+var collect = require('collect-stream')
+var once = require('once')
 
 module.exports = TrustLog
 
@@ -18,7 +20,6 @@ function TrustLog (db, opts) {
       else cb(new Error('cannot sign messages when opts.sign not provided'))
     },
     verify: function (node, cb) {
-      
     }
   })
   this.dex = hindex(
@@ -31,9 +32,7 @@ function TrustLog (db, opts) {
     if (row.value && row.value.op === 'trust') {
       tx.get('revoke!' + row.value.id, function (err, value) {
         if (notFound(err)) {
-          tx.put('trust!' + row.value.id, {}, function (err) {
-            next()
-          })
+          tx.put('trust!' + row.value.id, {}, next)
         }
         else if (err) next(err)
         else next(new Error('cannot re-trust a previously revoked key'))
@@ -75,14 +74,10 @@ TrustLog.prototype.trust = function (id, opts, cb) {
   else if (opts.time !== false) value.time = Date.now()
 
 // todo: check here to see if the key has been revoked previously
-  self.log.lock(function (release) {
+  self.log.ready(function () {
     self.log.heads(function (err, heads) {
-      if (err) { release(); return cb(err) }
-      self.log.add(heads.map(keyof), value, function (err) {
-        release()
-        if (err) cb(err)
-        else cb()
-      })
+      if (err) return cb(err)
+      self.log.add(heads.map(keyof), value, cb)
     })
   })
 }
@@ -105,20 +100,17 @@ TrustLog.prototype.revoke = function (id, opts, cb) {
     ? opts.time.getTime() : opts.time
   else if (opts.time !== false) value.time = Date.now()
 
-  self.log.lock(function (release) {
+  self.log.ready(function () {
     self.log.heads(function (err, heads) {
-      if (err) { release(); return cb(err) }
-      self.log.add(heads.map(keyof), value, function (err) {
-        release()
-        if (err) cb(err)
-        else cb()
-      })
+      if (err) return cb(err)
+      self.log.add(heads.map(keyof), value, cb)
     })
   })
 }
 
 TrustLog.prototype.trusted = function (cb) {
   if (!cb) cb = noop
+  else cb = once(cb)
   var self = this
   var output = through.obj()
  
@@ -127,12 +119,17 @@ TrustLog.prototype.trusted = function (cb) {
       if (err) return cb(err)
       var pending = 1
       heads.forEach(function (head) {
-        var tx = self.dex.transaction(head.key)
-        var r = tx.createReadStream('trust!' + head.key)
- 
         pending ++
-        r.pipe(output, { end: false })
-        r.on('end', done)
+        var tx = self.dex.transaction(head.key)
+        var r = tx.createReadStream({ gt: 'trust!', lt: 'trust!~' })
+        var tr = r.pipe(through.obj(function (row, enc, next) {
+          this.push({
+            id: row.key.split('!')[1]
+          })
+          next()
+        }))
+        tr.pipe(output, { end: false })
+        tr.on('end', done)
       })
       done()
       function done () {
@@ -140,6 +137,7 @@ TrustLog.prototype.trusted = function (cb) {
       }
     })
   })
+  if (cb) collect(output, cb)
   return readonly(output)
 }
 
