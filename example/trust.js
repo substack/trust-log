@@ -18,6 +18,7 @@ db.get('key', function (err, keypair) {
 
 function ready (keypair) {
   var log = trust(sub(db, 'trust'), {
+    id: keypair.publicKey,
     sign: function (node, cb) {
       var bkey = Buffer(node.key, 'hex')
       cb(null, sodium.crypto_sign(bkey, keypair.secretKey))
@@ -44,7 +45,7 @@ function ready (keypair) {
   } else if (argv._[0] === 'trusted') {
     log.trusted(function (err, ids) {
       ids.forEach(function (id) {
-        console.log(id.id)
+        console.log(id.id.toString('hex'))
       })
     })
   }

@@ -22,6 +22,7 @@ function TrustLog (db, opts) {
     verify: function (node, cb) {
     }
   })
+  this._id = typeof opts.id === 'string' ? Buffer(opts.id, 'hex') : opts.id
   this.dex = hindex(
     this.log,
     sub(db, 'i', { valueEncoding: 'json' }),
@@ -113,6 +114,7 @@ TrustLog.prototype.trusted = function (cb) {
   else cb = once(cb)
   var self = this
   var output = through.obj()
+  if (self._id !== undefined) output.push({ id: self._id })
  
   self.log.ready(function () {
     self.log.heads(function (err, heads) {
@@ -124,12 +126,13 @@ TrustLog.prototype.trusted = function (cb) {
         var r = tx.createReadStream({ gt: 'trust!', lt: 'trust!~' })
         var tr = r.pipe(through.obj(function (row, enc, next) {
           this.push({
-            id: row.key.split('!')[1]
+            id: Buffer(row.key.split('!')[1], 'hex')
           })
           next()
         }))
         tr.pipe(output, { end: false })
-        tr.on('end', done)
+        tr.once('end', done)
+        tr.once('end', function () { tx.close() })
       })
       done()
       function done () {
