@@ -43,7 +43,7 @@ function ready (keypair) {
   } else if (argv._[0] === 'id') {
     console.log(keypair.publicKey.toString('hex'))
   } else if (argv._[0] === 'trusted') {
-    log.trusted(function (err, ids) {
+    log.trusted(argv._.slice(1), function (err, ids) {
       ids.forEach(function (id) {
         console.log(id.id.toString('hex'))
       })

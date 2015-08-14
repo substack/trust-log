@@ -7,6 +7,7 @@ var through = require('through2')
 var readonly = require('read-only-stream')
 var collect = require('collect-stream')
 var once = require('once')
+var isarray = require('isarray')
 
 module.exports = TrustLog
 
@@ -109,37 +110,52 @@ TrustLog.prototype.revoke = function (id, opts, cb) {
   })
 }
 
-TrustLog.prototype.trusted = function (cb) {
+TrustLog.prototype.trusted = function (from, cb) {
+  var self = this
+  if (typeof from === 'function') {
+    cb = from
+    from = null
+  }
+  if (!from || (isarray(from) && from.length === 0)) {
+    self.log.ready(function () {
+      self.log.heads(function (err, heads) {
+        if (err) cb(err)
+        else load(heads)
+      })
+    })
+  } else load(from)
+ 
   if (!cb) cb = noop
   else cb = once(cb)
-  var self = this
+ 
   var output = through.obj()
   if (self._id !== undefined) output.push({ id: self._id })
  
-  self.log.ready(function () {
-    self.log.heads(function (err, heads) {
-      if (err) return cb(err)
-      var pending = 1
-      heads.forEach(function (head) {
-        pending ++
-        var tx = self.dex.transaction(head.key)
-        var r = tx.createReadStream({ gt: 'trust!', lt: 'trust!~' })
-        var tr = r.pipe(through.obj(function (row, enc, next) {
-          this.push({
-            id: Buffer(row.key.split('!')[1], 'hex')
-          })
-          next()
-        }))
-        tr.pipe(output, { end: false })
-        tr.once('end', done)
-        tr.once('end', function () { tx.close() })
-      })
-      done()
-      function done () {
-        if (--pending === 0) output.push(null)
-      }
+  function load (from) {
+    if (!isarray(from)) from = [from]
+    self.log.ready(function () { onready(from) })
+  }
+  function onready (heads) {
+    var pending = 1
+    heads.forEach(function (head) {
+      pending ++
+      var tx = self.dex.transaction(head.key)
+      var r = tx.createReadStream({ gt: 'trust!', lt: 'trust!~' })
+      var tr = r.pipe(through.obj(function (row, enc, next) {
+        this.push({
+          id: Buffer(row.key.split('!')[1], 'hex')
+        })
+        next()
+      }))
+      tr.pipe(output, { end: false })
+      tr.once('end', done)
+      tr.once('end', function () { tx.close() })
     })
-  })
+    done()
+    function done () {
+      if (--pending === 0) output.push(null)
+    }
+  }
   if (cb) collect(output, cb)
   return readonly(output)
 }
