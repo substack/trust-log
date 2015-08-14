@@ -3,6 +3,7 @@ var level = require('level')
 var sub = require('subleveldown')
 var sodium = require('sodium').api
 var minimist = require('minimist')
+var concat = require('concat-stream')
 var argv = minimist(process.argv.slice(2))
 
 var db = level(argv.d, { valueEncoding: 'json' })
@@ -48,6 +49,19 @@ function ready (keypair) {
         console.log(id.id.toString('hex'))
       })
     })
+  } else if (argv._[0] === 'verify') {
+    process.stdin.pipe(concat(function (body) {
+      var node = fromHexNode(JSON.parse(body.toString('utf8')))
+      log.verify(argv._.slice(1), node, function (err, ok) {
+        if (err) console.error(err)
+        else console.log(ok)
+      })
+    }))
+  } else if (argv._[0] === 'sign') {
+    process.stdin.pipe(concat(function (body) {
+      var msg = JSON.parse(body.toString())
+      sodium.crypto_sign(
+    }))
   }
 }
 
@@ -63,4 +77,9 @@ function fromHex (keypair) {
     secretKey: Buffer(keypair.secretKey, 'hex'),
     publicKey: Buffer(keypair.publicKey, 'hex')
   }
+}
+
+function fromHexNode (node) {
+  console.log('node=', node)
+  return node
 }

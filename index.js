@@ -75,7 +75,7 @@ TrustLog.prototype.trust = function (id, opts, cb) {
     ? opts.time.getTime() : opts.time
   else if (opts.time !== false) value.time = Date.now()
 
-// todo: check here to see if the key has been revoked previously
+  // todo: check here to see if the key has been revoked previously
   self.log.ready(function () {
     self.log.heads(function (err, heads) {
       if (err) return cb(err)
@@ -116,6 +116,12 @@ TrustLog.prototype.trusted = function (from, cb) {
     cb = from
     from = null
   }
+  if (!cb) cb = noop
+  else cb = once(cb)
+ 
+  var output = through.obj()
+  if (self._id !== undefined) output.push({ id: self._id })
+ 
   if (!from || (isarray(from) && from.length === 0)) {
     self.log.ready(function () {
       self.log.heads(function (err, heads) {
@@ -124,12 +130,6 @@ TrustLog.prototype.trusted = function (from, cb) {
       })
     })
   } else load(from)
- 
-  if (!cb) cb = noop
-  else cb = once(cb)
- 
-  var output = through.obj()
-  if (self._id !== undefined) output.push({ id: self._id })
  
   function load (from) {
     if (!isarray(from)) from = [from]
@@ -160,12 +160,38 @@ TrustLog.prototype.trusted = function (from, cb) {
   return readonly(output)
 }
 
-TrustLog.prototype.verify = function (node, cb) {
-  if (!node.signature) return cb(null, false)
-  if (!eq(node.identity, keys.publicKey)) return cb(null, false)
-  var bkey = Buffer(node.key, 'hex')
-  var m = sodium.crypto_sign_open(node.signature, node.identity)
-  cb(null, eq(m, bkey))
+TrustLog.prototype.verify = function (from, node, cb) {
+  var self = this
+  if (typeof node === 'function' || !from || from.length === 0) {
+    cb = node
+    node = from
+    self.ready(function () {
+      self.log.heads(function (err, heads) {
+        if (err) cb(err)
+        else onready(heads)
+      })
+    })
+  }
+  else self.ready(function () { onready(from) })
+
+  function onready (heads) {
+    if (!isarray(heads)) heads = [heads]
+    if (!node.signature) return cb(null, false)
+    self.trusted(heads, function (err, ids) {
+      if (err) return cb(err)
+      var id = null
+      for (var i = 0; i < ids.length; i++) {
+        if (eq(ids[i], node.identity)) {
+          id = ids[i]
+          break
+        }
+      }
+      if (!id) return cb(null, false)
+      var bkey = Buffer(node.key, 'hex')
+      var m = sodium.crypto_sign_open(node.signature, node.identity)
+      cb(null, eq(m, bkey))
+    })
+  }
 }
 
 function notFound (err) {
