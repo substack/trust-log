@@ -51,6 +51,7 @@ function ready (keypair) {
     })
   } else if (argv._[0] === 'verify') {
     process.stdin.pipe(concat(function (body) {
+      // ...
       var node = fromHexNode(JSON.parse(body.toString('utf8')))
       log.verify(argv._.slice(1), node, function (err, ok) {
         if (err) console.error(err)
@@ -77,9 +78,4 @@ function fromHex (keypair) {
     secretKey: Buffer(keypair.secretKey, 'hex'),
     publicKey: Buffer(keypair.publicKey, 'hex')
   }
-}
-
-function fromHexNode (node) {
-  console.log('node=', node)
-  return node
 }

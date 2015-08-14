@@ -21,6 +21,7 @@ function TrustLog (db, opts) {
       else cb(new Error('cannot sign messages when opts.sign not provided'))
     },
     verify: function (node, cb) {
+      
     }
   })
   this._id = typeof opts.id === 'string' ? Buffer(opts.id, 'hex') : opts.id
@@ -156,7 +157,9 @@ TrustLog.prototype.trusted = function (from, cb) {
       if (--pending === 0) output.push(null)
     }
   }
-  if (cb) collect(output, cb)
+  if (cb) collect(output, function (err, ids) {
+    if (ids) cb(null, ids.map(function (i) { return i.id }))
+  })
   return readonly(output)
 }
 
