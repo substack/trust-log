@@ -140,7 +140,7 @@ TrustLog.prototype.trusted = function (from, cb) {
     var pending = 1
     heads.forEach(function (head) {
       pending ++
-      var tx = self.dex.transaction(head.key)
+      var tx = self.dex.open(head.key)
       var r = tx.createReadStream({ gt: 'trust!', lt: 'trust!~' })
       var tr = r.pipe(through.obj(function (row, enc, next) {
         this.push({
