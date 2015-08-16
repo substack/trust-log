@@ -166,6 +166,16 @@ TrustLog.prototype.trusted = function (from, cb) {
   return readonly(output)
 }
 
+TrustLog.prototype.isTrusted = function (from, pubkey, cb) {
+  this.trusted(from, function (err, ids) {
+    if (err) return cb(err)
+    for (var i = 0; i < ids.length; i++) {
+      if (eq(ids[i], pubkey)) return cb(null, true)
+    }
+    cb(null, false)
+  })
+}
+
 TrustLog.prototype.verify = function (from, node, cb) {
   var self = this
   if (!self._verify) {
@@ -201,6 +211,10 @@ TrustLog.prototype.verify = function (from, node, cb) {
       self._verify(node, cb)
     })
   }
+}
+
+TrustLog.prototype.replicate = function () {
+  return this.log.replicate()
 }
 
 function notFound (err) {
