@@ -6,7 +6,7 @@ var eq = require('buffer-equals')
 var hyperlog = require('hyperlog')
 var through = require('through2')
 
-test('verify', function (t) {
+test('unverified msg', function (t) {
   t.plan(6)
   var kp0 = sodium.crypto_sign_keypair()
   var kp1 = sodium.crypto_sign_keypair()
@@ -15,11 +15,22 @@ test('verify', function (t) {
   var keys = [ kp1, kp2 ]
   var expectedKeys = keys.slice()
  
-  var tlog = trust(memdb(), {
+  var tlog0 = trust(memdb(), {
     identity: kp0.publicKey,
     sign: function (node, cb) {
       var bkey = Buffer(node.key, 'hex')
       cb(null, sodium.crypto_sign(bkey, kp0.secretKey))
+    },
+    verify: function (node, cb) {
+      var m = sodium.crypto_sign_open(node.signature, node.identity)
+      cb(null, eq(m, Buffer(node.key, 'hex')))
+    }
+  })
+  var tlog1 = trust(memdb(), {
+    identity: kp1.publicKey,
+    sign: function (node, cb) {
+      var bkey = Buffer(node.key, 'hex')
+      cb(null, sodium.crypto_sign(bkey, kp1.secretKey))
     },
     verify: function (node, cb) {
       var m = sodium.crypto_sign_open(node.signature, node.identity)

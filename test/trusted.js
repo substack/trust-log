@@ -11,7 +11,7 @@ test('trusted', function (t) {
   var kp2 = sodium.crypto_sign_keypair()
  
   var log = trust(memdb(), {
-    id: kp0.publicKey,
+    identity: kp0.publicKey,
     sign: function (node, cb) {
       var bkey = Buffer(node.key, 'hex')
       cb(null, sodium.crypto_sign(bkey, kp0.secretKey))
