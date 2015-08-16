@@ -1,6 +1,5 @@
 var hyperlog = require('hyperlog')
 var hindex = require('hyperlog-index')
-var sodium = require('sodium').api
 var sub = require('subleveldown')
 var eq = require('buffer-equals')
 var through = require('through2')
@@ -23,9 +22,10 @@ function TrustLog (db, opts) {
       else cb(new Error('cannot sign messages when opts.sign not provided'))
     },
     verify: function (node, cb) {
-      
+      // check updates against known current HEADs
     }
   })
+  this._verify = opts.verify
   this._id = typeof opts.id === 'string' ? Buffer(opts.id, 'hex') : opts.id
   this.dex = hindex(
     this.log,
@@ -167,6 +167,10 @@ TrustLog.prototype.trusted = function (from, cb) {
 
 TrustLog.prototype.verify = function (from, node, cb) {
   var self = this
+  if (!self._verify) {
+    var err = new Error('no verification function provided')
+    return process.nextTick(function () { cb(err) })
+  }
   if (typeof node === 'function' || !from || from.length === 0) {
     cb = node
     node = from
@@ -193,8 +197,7 @@ TrustLog.prototype.verify = function (from, node, cb) {
       }
       if (!id) return cb(null, false)
       var bkey = Buffer(node.key, 'hex')
-      var m = sodium.crypto_sign_open(node.signature, node.identity)
-      cb(null, eq(m, bkey))
+      self._verify(node, cb)
     })
   }
 }

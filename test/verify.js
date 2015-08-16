@@ -20,6 +20,10 @@ test('verify', function (t) {
     sign: function (node, cb) {
       var bkey = Buffer(node.key, 'hex')
       cb(null, sodium.crypto_sign(bkey, kp0.secretKey))
+    },
+    verify: function (node, cb) {
+      var m = sodium.crypto_sign_open(node.signature, node.identity)
+      cb(null, eq(m, Buffer(node.key, 'hex')))
     }
   })
   var hlog = hyperlog(memdb(), {
