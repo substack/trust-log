@@ -16,7 +16,7 @@ function TrustLog (db, opts) {
   if (!opts) opts = {}
   this.log = hyperlog(sub(db, 'l'), {
     valueEncoding: 'json',
-    identity: defined(opts.identity, null),
+    identity: defined(opts.identity, opts.id, null),
     sign: function (node, cb) {
       if (opts.sign) opts.sign(node, cb)
       else cb(new Error('cannot sign messages when opts.sign not provided'))
@@ -26,7 +26,8 @@ function TrustLog (db, opts) {
     }
   })
   this._verify = opts.verify
-  this._id = typeof opts.id === 'string' ? Buffer(opts.id, 'hex') : opts.id
+  this._id = defined(opts.identity, opts.id, null)
+  if (typeof this._id === 'string') this._id = Buffer(opts.id, 'hex')
   this.dex = hindex(
     this.log,
     sub(db, 'i', { valueEncoding: 'json' }),
