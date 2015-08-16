@@ -8,6 +8,7 @@ var readonly = require('read-only-stream')
 var collect = require('collect-stream')
 var once = require('once')
 var isarray = require('isarray')
+var defined = require('defined')
 
 module.exports = TrustLog
 
@@ -16,6 +17,7 @@ function TrustLog (db, opts) {
   if (!opts) opts = {}
   this.log = hyperlog(sub(db, 'l'), {
     valueEncoding: 'json',
+    identity: defined(opts.identity, null),
     sign: function (node, cb) {
       if (opts.sign) opts.sign(node, cb)
       else cb(new Error('cannot sign messages when opts.sign not provided'))
@@ -168,14 +170,14 @@ TrustLog.prototype.verify = function (from, node, cb) {
   if (typeof node === 'function' || !from || from.length === 0) {
     cb = node
     node = from
-    self.ready(function () {
+    self.log.ready(function () {
       self.log.heads(function (err, heads) {
         if (err) cb(err)
         else onready(heads)
       })
     })
   }
-  else self.ready(function () { onready(from) })
+  else self.log.ready(function () { onready(from) })
 
   function onready (heads) {
     if (!isarray(heads)) heads = [heads]
