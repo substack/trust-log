@@ -13,6 +13,7 @@ module.exports = TrustLog
 
 function TrustLog (db, opts) {
   if (!(this instanceof TrustLog)) return new TrustLog(db, opts)
+  var self = this
   if (!opts) opts = {}
   this.log = hyperlog(sub(db, 'l'), {
     valueEncoding: 'json',
@@ -22,7 +23,7 @@ function TrustLog (db, opts) {
       else cb(new Error('cannot sign messages when opts.sign not provided'))
     },
     verify: function (node, cb) {
-      // check updates against known current HEADs
+      self.verify(node.key, node, cb)
     }
   })
   this._verify = opts.verify
@@ -80,7 +81,7 @@ TrustLog.prototype.trust = function (id, opts, cb) {
   else if (opts.time !== false) value.time = Date.now()
 
   // todo: check here to see if the key has been revoked previously
-  self.log.ready(function () {
+  self.dex.ready(function () {
     self.log.heads(function (err, heads) {
       if (err) return cb(err)
       self.log.add(heads.map(keyof), value, cb)
@@ -106,7 +107,7 @@ TrustLog.prototype.revoke = function (id, opts, cb) {
     ? opts.time.getTime() : opts.time
   else if (opts.time !== false) value.time = Date.now()
 
-  self.log.ready(function () {
+  self.dex.ready(function () {
     self.log.heads(function (err, heads) {
       if (err) return cb(err)
       self.log.add(heads.map(keyof), value, cb)
@@ -127,7 +128,7 @@ TrustLog.prototype.trusted = function (from, cb) {
   if (self._id !== undefined) output.push({ id: self._id })
  
   if (!from || (isarray(from) && from.length === 0)) {
-    self.log.ready(function () {
+    self.dex.ready(function () {
       self.log.heads(function (err, heads) {
         if (err) cb(err)
         else load(heads)
@@ -137,13 +138,14 @@ TrustLog.prototype.trusted = function (from, cb) {
  
   function load (from) {
     if (!isarray(from)) from = [from]
-    self.log.ready(function () { onready(from) })
+    self.dex.ready(function () { onready(from) })
   }
   function onready (heads) {
     var pending = 1
     heads.forEach(function (head) {
+      var key = typeof head === 'string' ? head : head.key
       pending ++
-      var tx = self.dex.open(head.key)
+      var tx = self.dex.open(key)
       var r = tx.createReadStream({ gt: 'trust!', lt: 'trust!~' })
       var tr = r.pipe(through.obj(function (row, enc, next) {
         this.push({
@@ -185,14 +187,14 @@ TrustLog.prototype.verify = function (from, node, cb) {
   if (typeof node === 'function' || !from || from.length === 0) {
     cb = node
     node = from
-    self.log.ready(function () {
+    self.dex.ready(function () {
       self.log.heads(function (err, heads) {
         if (err) cb(err)
         else onready(heads)
       })
     })
   }
-  else self.log.ready(function () { onready(from) })
+  else self.dex.ready(function () { onready(from) })
 
   function onready (heads) {
     if (!isarray(heads)) heads = [heads]

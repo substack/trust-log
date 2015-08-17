@@ -2,75 +2,70 @@ var test = require('tape')
 var trust = require('../');
 var memdb = require('memdb')
 var sodium = require('sodium').api
+var hsodium = require('hyperlog-sodium')
 var eq = require('buffer-equals')
 var hyperlog = require('hyperlog')
 var through = require('through2')
 
-test('unverified msg', function (t) {
-  t.plan(6)
+test('unverified trust', function (t) {
+  t.plan(7)
   var kp0 = sodium.crypto_sign_keypair()
   var kp1 = sodium.crypto_sign_keypair()
   var kp2 = sodium.crypto_sign_keypair()
+  var kp3 = sodium.crypto_sign_keypair()
+ 
   var expectedVerify = [ true ]
   var keys = [ kp1, kp2 ]
   var expectedKeys = keys.slice()
+
+  var tlog0 = trust(memdb(), hsodium(sodium, kp0, {
+    publicKey: function (id, cb) { tlog0.isTrusted(id, cb) }
+  }))
+  var tlog1 = trust(memdb(), hsodium(sodium, kp1, {
+    publicKey: function (id, cb) { tlog1.isTrusted(id, cb) }
+  }))
+  var tlog2 = trust(memdb(), hsodium(sodium, kp2, {
+    publicKey: function (id, cb) { tlog2.isTrusted(id, cb) }
+  }))
  
-  var tlog0 = trust(memdb(), {
-    identity: kp0.publicKey,
-    sign: function (node, cb) {
-      var bkey = Buffer(node.key, 'hex')
-      cb(null, sodium.crypto_sign(bkey, kp0.secretKey))
-    },
-    verify: function (node, cb) {
-      var m = sodium.crypto_sign_open(node.signature, node.identity)
-      cb(null, eq(m, Buffer(node.key, 'hex')))
-    }
-  })
-  var tlog1 = trust(memdb(), {
-    identity: kp1.publicKey,
-    sign: function (node, cb) {
-      var bkey = Buffer(node.key, 'hex')
-      cb(null, sodium.crypto_sign(bkey, kp1.secretKey))
-    },
-    verify: function (node, cb) {
-      var m = sodium.crypto_sign_open(node.signature, node.identity)
-      cb(null, eq(m, Buffer(node.key, 'hex')))
-    }
-  })
-  var hlog = hyperlog(memdb(), {
-    valueEncoding: 'json',
-    identity: kp1.publicKey,
-    sign: function (node, cb) {
-      var bkey = Buffer(node.key, 'hex')
-      cb(null, sodium.crypto_sign(bkey, keys.shift().secretKey))
-    },
-    verify: function (node, cb) {
-      tlog.verify(node, cb)
-    }
-  })
-  hlog.add(null, 'beep', function (err, node) {
+  tlog0.trust(kp1.publicKey, function (err) {
     t.ifError(err)
-    hlog.add([node.key], 'boop', function (err, node) {
+    tlog1.trust(kp3.publicKey, function (err) {
       t.ifError(err)
+      tlog2.revoke(kp1.publicKey, function (err) {
+        t.ifError(err)
+        replicate01()
+      })
     })
   })
- 
-  tlog.trust(kp1.publicKey, verify)
-  function verify (err) {
-    t.ifError(err)
-    hlog.createReadStream().pipe(through.obj(write))
-    function write (row, enc, next) {
-      tlog.verify(row, function (err, ok) {
-        t.ifError(err)
-        t.equal(ok, expectedVerify.shift(), 'verify')
-        t.deepEqual(
-          row.identity,
-          expectedKeys.shift().publicKey,
-          'expected key'
-        )
+
+  function replicate01 () {
+    var r0 = tlog0.replicate()
+    var r1 = tlog1.replicate()
+    r0.pipe(r1).pipe(r0)
+    r0.on('end', function () {
+      tlog0.trusted(function (err, ids) {
+        t.deepEqual(sort(ids), sort([
+          kp0.publicKey, kp1.publicKey, kp3.publicKey
+        ]), 'picked up key 3 from key 1')
+        replicate02()
       })
-      next()
-    }
+    })
+  }
+
+  function replicate02 () {
+    var r0 = tlog0.replicate()
+    var r2 = tlog3.replicate()
+    r0.pipe(r2).pipe(r0)
+    r0.on('error', function (err) {
+      t.ok(err, 'replication with 2 rejected')
+      tlog0.trusted(function (err, ids) {
+        t.ifError(err)
+        t.deepEqual(sort(ids), sort([
+          kp0.publicKey, kp1.publicKey, kp3.publicKey
+        ]), 'key rejection rejected')
+      })
+    })
   }
 })
 

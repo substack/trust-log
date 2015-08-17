@@ -3,9 +3,6 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "browser": {
-    "sodium": "sodium-browserify"
-  },
   "dependencies": {
     "buffer-equals": "^1.0.3",
     "collect-stream": "^1.0.0",
@@ -15,12 +12,13 @@
     "isarray": "~0.0.1",
     "once": "^1.3.2",
     "read-only-stream": "^1.1.1",
-    "sodium": "^1.0.21",
-    "sodium-browserify": "~0.0.0",
     "subleveldown": "^2.0.0",
     "through2": "^2.0.0"
   },
   "devDependencies": {
+    "sodium": "^1.0.21",
+    "sodium-browserify": "~0.0.0",
+    "hyperlog-sodium": "^1.1.0",
     "level": "^1.3.0",
     "memdb": "^1.0.1",
     "minimist": "^1.1.3",
