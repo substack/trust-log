@@ -12,7 +12,6 @@ test('replicate', function (t) {
   var kp0 = sodium.crypto_sign_keypair()
   var kp1 = sodium.crypto_sign_keypair()
   var kp2 = sodium.crypto_sign_keypair()
-  var kp3 = sodium.crypto_sign_keypair()
  
   var expectedVerify = [ true ]
   var keys = [ kp1, kp2 ]
@@ -24,28 +23,28 @@ test('replicate', function (t) {
   var tlog1 = trust(memdb(), hsodium(sodium, kp1, {
     publicKey: function (id, cb) { tlog1.isTrusted(id, cb) }
   }))
-  var tlog2 = trust(memdb(), hsodium(sodium, kp2, {
+  var tlog2 = trust(memdb(), hsodium(sodium, kp1, {
     publicKey: function (id, cb) { tlog2.isTrusted(id, cb) }
   }))
-  var tlog3 = trust(memdb(), hsodium(sodium, kp3, {
-    publicKey: function (id, cb) { tlog3.isTrusted(id, cb) }
-  }))
  
+  var pending = 2
   tlog0.trust(kp1.publicKey, function (err) {
     t.ifError(err)
-    tlog1.trust(kp3.publicKey, function (err) {
+    if (--pending === 0) replicate()
+  })
+  tlog1.trust(kp0.publicKey, function (err) {
+    t.ifError(err)
+    tlog1.trust(kp2.publicKey, function (err) {
       t.ifError(err)
-      tlog2.revoke(kp1.publicKey, function (err) {
-        t.ifError(err)
-        replicate01()
-      })
+      if (--pending === 0) replicate()
     })
   })
 
-  function replicate01 () {
+  function replicate () {
     var r0 = tlog0.replicate({ live: false })
     var r1 = tlog1.replicate({ live: false })
     r0.once('finish', function () {
+console.log('FiNISH') 
       tlog0.trusted(function (err, ids) {
         t.deepEqual(sort(ids), sort([
           kp0.publicKey, kp1.publicKey, kp3.publicKey
@@ -54,21 +53,6 @@ test('replicate', function (t) {
       })
     })
     r0.pipe(r1).pipe(r0)
-  }
-
-  function replicate02 () {
-    var r0 = tlog0.replicate({ live: false })
-    var r3 = tlog3.replicate({ live: false })
-    r0.pipe(r3).pipe(r0)
-    r0.on('error', function (err) {
-      t.ok(err, 'replication with 2 rejected')
-      tlog0.trusted(function (err, ids) {
-        t.ifError(err)
-        t.deepEqual(sort(ids), sort([
-          kp0.publicKey, kp1.publicKey, kp3.publicKey
-        ]), 'key rejection rejected')
-      })
-    })
   }
 })
 

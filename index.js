@@ -26,7 +26,7 @@ function TrustLog (db, opts) {
       else cb(new Error('cannot sign messages when opts.sign not provided'))
     },
     verify: function (node, cb) {
-      self.verify([node.key], node, cb)
+      self._verifyNow(node.links, node, cb)
     }
   })
   this._verify = opts.verify
@@ -125,9 +125,7 @@ TrustLog.prototype.trusted = function (from, cb) {
   else cb = once(cb)
   if (from && !isarray(from)) from = [from]
  
-  var output = through.obj()
-  if (self._id !== undefined) output.push({ id: self._id })
- 
+  var dup = duplexify.obj()
   if (!from) {
     self.log.ready(function () {
       self.log.heads(function (err, heads) {
@@ -138,28 +136,38 @@ TrustLog.prototype.trusted = function (from, cb) {
   } else load(from)
  
   function load (from) {
-    self.dex.ready(from, function () { onready(from) })
-  }
-  function onready (heads) {
-    var pending = 1
-    heads.forEach(function (head) {
-      pending ++
-      var tx = self.dex.open(head)
-      var r = tx.createReadStream({ gt: 'trust!', lt: 'trust!~' })
-      var tr = r.pipe(through.obj(function (row, enc, next) {
-        this.push({
-          id: Buffer(row.key.split('!')[1], 'hex')
-        })
-        next()
-      }))
-      tr.pipe(output, { end: false })
-      tr.once('end', done)
-      tr.once('end', function () { tx.close() })
+    self.dex.ready(from, function () {
+      dup.setReadable(self._trustedNow(from, cb))
     })
-    done()
-    function done () {
-      if (--pending === 0) output.push(null)
-    }
+  }
+  return readonly(dup)
+}
+
+TrustLog.prototype._trustedNow = function (heads, cb) {
+  var self = this
+  var output = through.obj()
+  if (self._id !== undefined) output.push({ id: self._id })
+ 
+  if (!heads) heads = []
+  if (!isarray(heads)) heads = [heads]
+  var pending = 1
+  heads.forEach(function (head) {
+    pending ++
+    var tx = self.dex.open(head)
+    var r = tx.createReadStream({ gt: 'trust!', lt: 'trust!~' })
+    var tr = r.pipe(through.obj(function (row, enc, next) {
+      this.push({
+        id: Buffer(row.key.split('!')[1], 'hex')
+      })
+      next()
+    }))
+    tr.pipe(output, { end: false })
+    tr.once('end', done)
+    tr.once('end', function () { tx.close() })
+  })
+  done()
+  function done () {
+    if (--pending === 0) output.push(null)
   }
   if (cb) collect(output, function (err, ids) {
     if (ids) cb(null, ids.map(function (i) { return i.id }))
@@ -186,6 +194,19 @@ TrustLog.prototype.isTrusted = function (from, pubkey, cb) {
   }
 }
 
+TrustLog.prototype._isTrustedNow = function (from, pubkey, cb) {
+  var self = this
+  if (eq(pubkey, self._id)) process.nextTick(function () { cb(null, true) })
+  else self._trustedNow(from, function (err, ids) {
+console.log('ids=', ids) 
+    if (err) return cb(err)
+    for (var i = 0; i < ids.length; i++) {
+      if (eq(ids[i], pubkey)) return cb(null, true)
+    }
+    cb(null, false)
+  })
+}
+
 TrustLog.prototype.verify = function (from, node, cb) {
   var self = this
   if (!self._verify) {
@@ -199,8 +220,23 @@ TrustLog.prototype.verify = function (from, node, cb) {
   }
   if (!cb) cb = noop
   if (!node.signature) return cb(null, false)
-console.log('isTrusted', node.key.toString('hex')) 
   self.isTrusted(from, node.identity, function (err, ok) {
+    if (err) cb(err)
+    else if (!ok) cb(null, false)
+    else self._verify(node, cb)
+  })
+}
+
+TrustLog.prototype._verifyNow = function (from, node, cb) {
+  var self = this
+  if (!self._verify) {
+    var err = new Error('no verification function provided')
+    return process.nextTick(function () { cb(err) })
+  }
+  if (!cb) cb = noop
+  if (!node.signature) return cb(null, false)
+console.log('isTrusted', node.key.toString('hex')) 
+  self._isTrustedNow(from, node.identity, function (err, ok) {
 console.log('ok=', ok) 
     if (err) cb(err)
     else if (!ok) cb(null, false)
