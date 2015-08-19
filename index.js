@@ -122,6 +122,7 @@ TrustLog.prototype.trusted = function (from, cb) {
   }
   if (!cb) cb = noop
   else cb = once(cb)
+  if (from && !isarray(from)) from = [from]
  
   var output = through.obj()
   if (self._id !== undefined) output.push({ id: self._id })
@@ -130,14 +131,13 @@ TrustLog.prototype.trusted = function (from, cb) {
     self.log.ready(function () {
       self.log.heads(function (err, heads) {
         if (err) cb(err)
-        else onready(links(heads))
+        else load(heads.map(keyof))
       })
     })
   } else load(from)
  
   function load (from) {
-    if (!isarray(from)) from = [from]
-    self.dex.ready(function () { onready(from) })
+    self.dex.ready(from, function () { onready(from) })
   }
   function onready (heads) {
     var pending = 1
@@ -171,8 +171,10 @@ TrustLog.prototype.isTrusted = function (from, pubkey, cb) {
   if (typeof pubkey === 'function') {
     cb = pubkey
     pubkey = from
-    self.trusted(null, ontrusted)
-  } else self.trusted(from, ontrusted)
+    from = null
+  }
+  if (eq(pubkey, self._id)) process.nextTick(function () { cb(null, true) })
+  else self.trusted(from, ontrusted)
 
   function ontrusted (err, ids) {
     if (err) return cb(err)
@@ -183,14 +185,20 @@ TrustLog.prototype.isTrusted = function (from, pubkey, cb) {
   }
 }
 
-TrustLog.prototype.verify = function (node, cb) {
+TrustLog.prototype.verify = function (from, node, cb) {
   var self = this
   if (!self._verify) {
     var err = new Error('no verification function provided')
     return process.nextTick(function () { cb(err) })
   }
+  if (!node || typeof node === 'function') {
+    cb = node
+    node = from
+    from = null
+  }
+  if (!cb) cb = noop
   if (!node.signature) return cb(null, false)
-  self.isTrusted(node.links, node.identity, function (err, ok) {
+  self.isTrusted(from, node.identity, function (err, ok) {
     if (err) cb(err)
     else if (!ok) cb(null, false)
     else self._verify(node, cb)
