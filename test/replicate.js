@@ -7,7 +7,7 @@ var eq = require('buffer-equals')
 var hyperlog = require('hyperlog')
 var through = require('through2')
 
-test('unverified trust', function (t) {
+test('replicate', function (t) {
   t.plan(7)
   var kp0 = sodium.crypto_sign_keypair()
   var kp1 = sodium.crypto_sign_keypair()
@@ -57,9 +57,9 @@ test('unverified trust', function (t) {
   }
 
   function replicate02 () {
-    var r0 = tlog0.replicate()
-    var r2 = tlog3.replicate()
-    r0.pipe(r2).pipe(r0)
+    var r0 = tlog0.replicate({ live: false })
+    var r3 = tlog3.replicate({ live: false })
+    r0.pipe(r3).pipe(r0)
     r0.on('error', function (err) {
       t.ok(err, 'replication with 2 rejected')
       tlog0.trusted(function (err, ids) {

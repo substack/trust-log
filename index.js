@@ -9,6 +9,7 @@ var once = require('once')
 var isarray = require('isarray')
 var defined = require('defined')
 var concat = require('concat-map')
+var duplexify = require('duplexify')
 
 module.exports = TrustLog
 
@@ -25,7 +26,7 @@ function TrustLog (db, opts) {
       else cb(new Error('cannot sign messages when opts.sign not provided'))
     },
     verify: function (node, cb) {
-      self.verify(node, cb)
+      self.verify([node.key], node, cb)
     }
   })
   this._verify = opts.verify
@@ -198,15 +199,24 @@ TrustLog.prototype.verify = function (from, node, cb) {
   }
   if (!cb) cb = noop
   if (!node.signature) return cb(null, false)
+console.log('isTrusted', node.key.toString('hex')) 
   self.isTrusted(from, node.identity, function (err, ok) {
+console.log('ok=', ok) 
     if (err) cb(err)
     else if (!ok) cb(null, false)
     else self._verify(node, cb)
   })
 }
 
-TrustLog.prototype.replicate = function () {
-  return this.log.replicate()
+TrustLog.prototype.replicate = function (opts) {
+  var self = this
+  var dup = duplexify()
+  self.dex.ready(function () {
+    var r = self.log.replicate(opts)
+    dup.setReadable(r)
+    dup.setWritable(r)
+  })
+  return dup
 }
 
 function notFound (err) {
@@ -215,7 +225,3 @@ function notFound (err) {
 
 function keyof (node) { return node.key }
 function noop () {}
-
-function links (nodes) {
-  return concat(nodes, function (node) { return node.links || [] })
-}
