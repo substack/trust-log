@@ -6,6 +6,7 @@
   "dependencies": {
     "buffer-equals": "^1.0.3",
     "collect-stream": "^1.0.0",
+    "concat-map": "0.0.1",
     "defined": "^1.0.0",
     "hyperlog": "^4.5.0",
     "hyperlog-index": "^3.0.0",

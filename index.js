@@ -8,6 +8,7 @@ var collect = require('collect-stream')
 var once = require('once')
 var isarray = require('isarray')
 var defined = require('defined')
+var concat = require('concat-map')
 
 module.exports = TrustLog
 
@@ -63,56 +64,54 @@ function TrustLog (db, opts) {
   }
 }
 
-TrustLog.prototype.trust = function (id, opts, cb) {
+TrustLog.prototype.trust = function (node, cb) {
   var self = this
-  if (typeof opts === 'function') {
-    cb = opts
-    opts = {}
+  if (typeof node === 'string') {
+    node = { id: node }
+  } else if (Buffer.isBuffer(node)) {
+    node = { id: node.toString('hex') }
   }
-  if (!opts) opts = {}
   if (!cb) cb = noop
   var value = {
     op: 'trust',
-    id: typeof id === 'string' ? id : id.toString('hex')
+    id: node.id,
+    time: defined(node.time, Date.now())
   }
-  if (opts.external) value.external = [].concat(opts.external)
-  if (opts.time) value.time = opts.time && typeof opts.time === 'object'
-    ? opts.time.getTime() : opts.time
-  else if (opts.time !== false) value.time = Date.now()
 
   // todo: check here to see if the key has been revoked previously
-  self.dex.ready(function () {
-    self.log.heads(function (err, heads) {
-      if (err) return cb(err)
-      self.log.add(heads.map(keyof), value, cb)
+  if (node.links === undefined) {
+    self.log.ready(function () {
+      self.log.heads(function (err, heads) {
+        if (err) cb(err)
+        else self.log.add(heads.map(keyof), value, cb)
+      })
     })
-  })
+  } else self.log.add(node.links, value, cb)
 }
 
-TrustLog.prototype.revoke = function (id, opts, cb) {
+TrustLog.prototype.revoke = function (node, cb) {
   var self = this
-  if (typeof opts === 'function') {
-    cb = opts
-    opts = {}
+  if (typeof node === 'string') {
+    node = { id: node }
+  } else if (Buffer.isBuffer(node)) {
+    node = { id: node.toString('hex') }
   }
-  if (!opts) opts = {}
   if (!cb) cb = noop
  
   var value = {
     op: 'revoke',
-    id: typeof id === 'string' ? id : id.toString('hex')
+    id: node.id,
+    time: defined(node.time, Date.now())
   }
-  if (opts.external) value.external = [].concat(opts.external)
-  if (opts.time) value.time = opts.time && typeof opts.time === 'object'
-    ? opts.time.getTime() : opts.time
-  else if (opts.time !== false) value.time = Date.now()
 
-  self.dex.ready(function () {
-    self.log.heads(function (err, heads) {
-      if (err) return cb(err)
-      self.log.add(heads.map(keyof), value, cb)
+  if (node.links === undefined) {
+    self.log.ready(function () {
+      self.log.heads(function (err, heads) {
+        if (err) cb(err)
+        else self.log.add(heads.map(keyof), value, cb)
+      })
     })
-  })
+  } else self.log.add(node.links, value, cb)
 }
 
 TrustLog.prototype.trusted = function (from, cb) {
@@ -173,10 +172,12 @@ TrustLog.prototype.isTrusted = function (from, pubkey, cb) {
   if (typeof pubkey === 'function') {
     cb = pubkey
     pubkey = from
-    self.log.heads(function (err, heads) {
-      self.trusted(heads, ontrusted)
+    self.log.ready(function () {
+      self.log.heads(function (err, heads) {
+        self.trusted(links(heads), ontrusted)
+      })
     })
-  } else this.trusted(from, ontrusted)
+  } else self.trusted(from, ontrusted)
 
   function ontrusted (err, ids) {
     if (err) return cb(err)
@@ -231,3 +232,7 @@ function notFound (err) {
 
 function keyof (node) { return node.key }
 function noop () {}
+
+function links (nodes) {
+  return concat(nodes, function (node) { return node.links || [] })
+}
