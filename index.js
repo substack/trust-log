@@ -23,7 +23,7 @@ function TrustLog (db, opts) {
       else cb(new Error('cannot sign messages when opts.sign not provided'))
     },
     verify: function (node, cb) {
-      self.verify(node.key, node, cb)
+      self.verify(node, cb)
     }
   })
   this._verify = opts.verify
@@ -178,28 +178,26 @@ TrustLog.prototype.isTrusted = function (from, pubkey, cb) {
   })
 }
 
-TrustLog.prototype.verify = function (from, node, cb) {
+TrustLog.prototype.verify = function (node, cb) {
   var self = this
   if (!self._verify) {
     var err = new Error('no verification function provided')
     return process.nextTick(function () { cb(err) })
   }
-  if (typeof node === 'function' || !from || from.length === 0) {
-    cb = node
-    node = from
-    self.dex.ready(function () {
+  if (node.links.length === 0) {
+    //self.dex.ready(function () {
+    self.log.ready(function () {
       self.log.heads(function (err, heads) {
         if (err) cb(err)
         else onready(heads)
       })
     })
   }
-  else self.dex.ready(function () { onready(from) })
+  else self.dex.ready(node.links, function () { onready() })
 
-  function onready (heads) {
-    if (!isarray(heads)) heads = [heads]
+  function onready () {
     if (!node.signature) return cb(null, false)
-    self.trusted(heads, function (err, ids) {
+    self.trusted(node.links, function (err, ids) {
       if (err) return cb(err)
       var id = null
       for (var i = 0; i < ids.length; i++) {

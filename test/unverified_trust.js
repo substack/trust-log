@@ -27,6 +27,9 @@ test('unverified trust', function (t) {
   var tlog2 = trust(memdb(), hsodium(sodium, kp2, {
     publicKey: function (id, cb) { tlog2.isTrusted(id, cb) }
   }))
+  var tlog3 = trust(memdb(), hsodium(sodium, kp3, {
+    publicKey: function (id, cb) { tlog3.isTrusted(id, cb) }
+  }))
  
   tlog0.trust(kp1.publicKey, function (err) {
     t.ifError(err)
@@ -40,10 +43,9 @@ test('unverified trust', function (t) {
   })
 
   function replicate01 () {
-    var r0 = tlog0.replicate()
-    var r1 = tlog1.replicate()
-    r0.pipe(r1).pipe(r0)
-    r0.on('end', function () {
+    var r0 = tlog0.replicate({ live: false })
+    var r1 = tlog1.replicate({ live: false })
+    r0.once('finish', function () {
       tlog0.trusted(function (err, ids) {
         t.deepEqual(sort(ids), sort([
           kp0.publicKey, kp1.publicKey, kp3.publicKey
@@ -51,6 +53,7 @@ test('unverified trust', function (t) {
         replicate02()
       })
     })
+    r0.pipe(r1).pipe(r0)
   }
 
   function replicate02 () {
