@@ -128,10 +128,10 @@ TrustLog.prototype.trusted = function (from, cb) {
   if (self._id !== undefined) output.push({ id: self._id })
  
   if (!from || (isarray(from) && from.length === 0)) {
-    self.dex.ready(function () {
+    self.log.ready(function () {
       self.log.heads(function (err, heads) {
         if (err) cb(err)
-        else load(heads)
+        else onready(heads)
       })
     })
   } else load(from)
@@ -169,13 +169,22 @@ TrustLog.prototype.trusted = function (from, cb) {
 }
 
 TrustLog.prototype.isTrusted = function (from, pubkey, cb) {
-  this.trusted(from, function (err, ids) {
+  var self = this
+  if (typeof pubkey === 'function') {
+    cb = pubkey
+    pubkey = from
+    self.log.heads(function (err, heads) {
+      self.trusted(heads, ontrusted)
+    })
+  } else this.trusted(from, ontrusted)
+
+  function ontrusted (err, ids) {
     if (err) return cb(err)
     for (var i = 0; i < ids.length; i++) {
       if (eq(ids[i], pubkey)) return cb(null, true)
     }
     cb(null, false)
-  })
+  }
 }
 
 TrustLog.prototype.verify = function (node, cb) {
@@ -192,8 +201,7 @@ TrustLog.prototype.verify = function (node, cb) {
         else onready(heads)
       })
     })
-  }
-  else self.dex.ready(node.links, function () { onready() })
+  } else self.dex.ready(node.links, function () { onready() })
 
   function onready () {
     if (!node.signature) return cb(null, false)
