@@ -1,7 +1,8 @@
 var test = require('tape')
 var trust = require('../');
 var memdb = require('memdb')
-var sodium = require('sodium').api
+var sodium = require('sodium')
+if (sodium.api) sodium = sodium.api
 var eq = require('buffer-equals')
 var hyperlog = require('hyperlog')
 var through = require('through2')

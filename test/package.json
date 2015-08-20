@@ -1,0 +1,5 @@
+{
+  "browser": {
+    "sodium": "sodium-browserify/browser.js"
+  }
+}

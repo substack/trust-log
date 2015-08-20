@@ -19,12 +19,14 @@
   },
   "devDependencies": {
     "sodium": "^1.0.21",
+    "sodium-browserify": "~0.0.0",
     "hyperlog-sodium": "^1.1.0",
     "memdb": "^1.0.1",
     "tape": "^4.0.3"
   },
   "scripts": {
-    "test": "tape test/*.js"
+    "test": "tape test/*.js",
+    "browser-test": "browserify test/*.js | browser-run -b chrome"
   },
   "author": "substack",
   "license": "MIT"
