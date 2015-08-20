@@ -1,9 +1,7 @@
 var trust = require('../');
 var level = require('level')
-var sub = require('subleveldown')
 var sodium = require('sodium').api
 var minimist = require('minimist')
-var concat = require('concat-stream')
 var argv = minimist(process.argv.slice(2))
 
 var keypair = sodium.crypto_sign_keypair()
@@ -13,6 +11,6 @@ var value = {
 }
 
 var db = level(argv.d, { valueEncoding: 'json' })
-db.put('key', keypair, function (err) {
+db.put('key', value, function (err) {
   if (err) console.error(err)
 })
