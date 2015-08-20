@@ -15,7 +15,5 @@ db.get('key', function (err, value) {
   var log = trust(db, hsodium(sodium, keypair, {
     publicKey: function (id, cb) { log.isTrusted(id, cb) }
   }))
-  log.trust(argv._[0], function (err) {
-    if (err) console.error(err)
-  })
+  process.stdin.pipe(log.replicate()).pipe(process.stdout)
 })
