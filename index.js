@@ -196,9 +196,10 @@ TrustLog.prototype.isTrusted = function (from, pubkey, cb) {
 
 TrustLog.prototype._isTrustedNow = function (from, pubkey, cb) {
   var self = this
-  if (eq(pubkey, self._id)) process.nextTick(function () { cb(null, true) })
-  else self._trustedNow(from, function (err, ids) {
-console.log('ids=', ids) 
+  if (eq(pubkey, self._id)) {
+    return process.nextTick(function () { cb(null, true) })
+  }
+  self.trusted(function (err, ids) {
     if (err) return cb(err)
     for (var i = 0; i < ids.length; i++) {
       if (eq(ids[i], pubkey)) return cb(null, true)
@@ -235,9 +236,7 @@ TrustLog.prototype._verifyNow = function (from, node, cb) {
   }
   if (!cb) cb = noop
   if (!node.signature) return cb(null, false)
-console.log('isTrusted', node.key.toString('hex')) 
   self._isTrustedNow(from, node.identity, function (err, ok) {
-console.log('ok=', ok) 
     if (err) cb(err)
     else if (!ok) cb(null, false)
     else self._verify(node, cb)
@@ -251,6 +250,7 @@ TrustLog.prototype.replicate = function (opts) {
     var r = self.log.replicate(opts)
     dup.setReadable(r)
     dup.setWritable(r)
+    r.on('finish', function () { dup.emit('finish') })
   })
   return dup
 }

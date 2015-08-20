@@ -47,9 +47,8 @@ test('replicate', function (t) {
 console.log('FiNISH') 
       tlog0.trusted(function (err, ids) {
         t.deepEqual(sort(ids), sort([
-          kp0.publicKey, kp1.publicKey, kp3.publicKey
+          kp0.publicKey, kp1.publicKey, kp2.publicKey
         ]), 'picked up key 3 from key 1')
-        replicate02()
       })
     })
     r0.pipe(r1).pipe(r0)
