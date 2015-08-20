@@ -161,7 +161,11 @@ TrustLog.prototype._trustedNow = function (heads, cb) {
       })
       next()
     }))
-    tr.pipe(output, { end: false })
+    tr.pipe(through.obj(function (row, enc, next) {
+      if (self._id && eq(row.id, self._id)) {}
+      else this.push(row)
+      next()
+    })).pipe(output, { end: false })
     tr.once('end', done)
     tr.once('end', function () { tx.close() })
   })
