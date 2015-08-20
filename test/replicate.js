@@ -8,7 +8,7 @@ var hyperlog = require('hyperlog')
 var through = require('through2')
 
 test('replicate', function (t) {
-  t.plan(7)
+  t.plan(5)
   var kp0 = sodium.crypto_sign_keypair()
   var kp1 = sodium.crypto_sign_keypair()
   var kp2 = sodium.crypto_sign_keypair()
@@ -44,8 +44,12 @@ test('replicate', function (t) {
     var r0 = tlog0.replicate({ live: false })
     var r1 = tlog1.replicate({ live: false })
     r0.once('finish', function () {
-console.log('FiNISH') 
       tlog0.trusted(function (err, ids) {
+        t.deepEqual(sort(ids), sort([
+          kp0.publicKey, kp1.publicKey, kp2.publicKey
+        ]), 'picked up key 3 from key 1')
+      })
+      tlog1.trusted(function (err, ids) {
         t.deepEqual(sort(ids), sort([
           kp0.publicKey, kp1.publicKey, kp2.publicKey
         ]), 'picked up key 3 from key 1')
