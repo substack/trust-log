@@ -186,7 +186,7 @@ TrustLog.prototype.isTrusted = function (from, pubkey, cb) {
     pubkey = from
     from = null
   }
-  if (eq(pubkey, self._id)) process.nextTick(function () { cb(null, true) })
+  if (eq(pubkey, self._id)) return nextTick(cb, null, true)
   else self.trusted(from, ontrusted)
 
   function ontrusted (err, ids) {
@@ -200,9 +200,7 @@ TrustLog.prototype.isTrusted = function (from, pubkey, cb) {
 
 TrustLog.prototype._isTrustedNow = function (from, pubkey, cb) {
   var self = this
-  if (eq(pubkey, self._id)) {
-    return process.nextTick(function () { cb(null, true) })
-  }
+  if (eq(pubkey, self._id)) return nextTick(cb, null, true)
   self.trusted(function (err, ids) {
     if (err) return cb(err)
     for (var i = 0; i < ids.length; i++) {
@@ -215,8 +213,7 @@ TrustLog.prototype._isTrustedNow = function (from, pubkey, cb) {
 TrustLog.prototype.verify = function (from, node, cb) {
   var self = this
   if (!self._verify) {
-    var err = new Error('no verification function provided')
-    return process.nextTick(function () { cb(err) })
+    return nextTick(cb, new Error('no verification function provided'))
   }
   if (!node || typeof node === 'function') {
     cb = node
@@ -237,8 +234,7 @@ TrustLog.prototype.verify = function (from, node, cb) {
 TrustLog.prototype._verifyNow = function (from, node, cb) {
   var self = this
   if (!self._verify) {
-    var err = new Error('no verification function provided')
-    return process.nextTick(function () { cb(err) })
+    return nextTick(cb, new Error('no verification function provided'))
   }
   if (!cb) cb = noop
   if (!node.signature) return nextTick(cb, null, false)
