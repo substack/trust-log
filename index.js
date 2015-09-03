@@ -51,7 +51,11 @@ function TrustLog (db, opts) {
     if (row.value && row.value.op === 'trust') {
       tx.get('revoke!' + row.value.id, function (err, value) {
         if (notFound(err)) {
-          tx.put('trust!' + row.value.id, {}, next)
+          tx.get('trust!' + row.value.id, function (err) {
+            if (notFound(err)) tx.put('trust!' + row.value.id, {}, next)
+            else if (err) next(err)
+            else next()
+          })
         }
         else if (err) next(err)
         else next(new Error('cannot re-trust a previously revoked key'))
