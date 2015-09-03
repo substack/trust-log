@@ -200,7 +200,7 @@ TrustLog.prototype.isTrusted = function (from, pubkey, cb) {
 
 TrustLog.prototype._isTrustedNow = function (from, pubkey, cb) {
   var self = this
-  if (eq(pubkey, self._id)) return nextTick(cb, null, true)
+  if (self._id && eq(pubkey, self._id)) return nextTick(cb, null, true)
   self.trusted(function (err, ids) {
     if (err) return cb(err)
     for (var i = 0; i < ids.length; i++) {
