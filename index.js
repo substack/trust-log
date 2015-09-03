@@ -146,7 +146,7 @@ TrustLog.prototype.trusted = function (from, cb) {
 TrustLog.prototype._trustedNow = function (heads, cb) {
   var self = this
   var output = through.obj()
-  if (self._id !== undefined) output.push({ id: self._id })
+  if (self._id) output.push({ id: self._id })
  
   if (!heads) heads = []
   if (!isarray(heads)) heads = [heads]
@@ -186,7 +186,7 @@ TrustLog.prototype.isTrusted = function (from, pubkey, cb) {
     pubkey = from
     from = null
   }
-  if (eq(pubkey, self._id)) return nextTick(cb, null, true)
+  if (self._id && eq(pubkey, self._id)) return nextTick(cb, null, true)
   else self.trusted(from, ontrusted)
 
   function ontrusted (err, ids) {
