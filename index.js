@@ -224,7 +224,9 @@ TrustLog.prototype.verify = function (from, node, cb) {
     from = null
   }
   if (!cb) cb = noop
-  if (!node.signature) return cb(null, false)
+  if (!node.signature) return nextTick(cb, null, false)
+  if (!node.identity) return nextTick(cb, null, false)
+
   self.isTrusted(from, node.identity, function (err, ok) {
     if (err) cb(err)
     else if (!ok) cb(null, false)
@@ -239,7 +241,8 @@ TrustLog.prototype._verifyNow = function (from, node, cb) {
     return process.nextTick(function () { cb(err) })
   }
   if (!cb) cb = noop
-  if (!node.signature) return cb(null, false)
+  if (!node.signature) return nextTick(cb, null, false)
+  if (!node.identity) return nextTick(cb, null, false)
   self._isTrustedNow(from, node.identity, function (err, ok) {
     if (err) cb(err)
     else if (!ok) cb(null, false)
@@ -265,3 +268,7 @@ function notFound (err) {
 
 function keyof (node) { return node.key }
 function noop () {}
+function nextTick (cb) {
+  var args = [].slice.call(arguments, 1)
+  process.nextTick(function () { cb.apply(null, args) })
+}
