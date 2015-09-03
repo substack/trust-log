@@ -24,7 +24,7 @@ test('verify', function (t) {
     },
     verify: function (node, cb) {
       var m = sodium.crypto_sign_open(node.signature, node.identity)
-      cb(null, eq(m, Buffer(node.key, 'hex')))
+      cb(null, m && eq(m, Buffer(node.key, 'hex')))
     }
   })
   var hlog = hyperlog(memdb(), {

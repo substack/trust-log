@@ -14,6 +14,7 @@ test('trust on first use', function (t) {
   var kp2 = sodium.crypto_sign_keypair()
  
   var tlog0 = trust(memdb(), {
+    tofu: true,
     verify: function (node, cb) {
       var m = sodium.crypto_sign_open(node.signature, node.identity)
       cb(null, eq(m, Buffer(node.key, 'hex')))
@@ -28,7 +29,7 @@ test('trust on first use', function (t) {
   })
 
   function replicate () {
-    var r0 = tlog0.replicate({ tofu: true })
+    var r0 = tlog0.replicate()
     var r1 = tlog1.replicate()
     r0.once('finish', function () {
       tlog0.trusted(function (err, ids) {

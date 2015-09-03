@@ -17,6 +17,7 @@ function TrustLog (db, opts) {
   if (!(this instanceof TrustLog)) return new TrustLog(db, opts)
   var self = this
   if (!opts) opts = {}
+  this._tofu = opts.tofu
   this._id = defined(opts.identity, opts.id, null)
   this.log = hyperlog(sub(db, 'l'), {
     valueEncoding: 'json',
@@ -26,7 +27,15 @@ function TrustLog (db, opts) {
       else cb(new Error('cannot sign messages when opts.sign not provided'))
     },
     verify: function (node, cb) {
-      self._verifyNow(node.links, node, cb)
+      if (self._tofu) {
+        count(self.log.createReadStream({ limit: 1 }), function (err, n) {
+          if (n > 0) self._tofu = false
+          if (err) cb(err)
+          else if (n === 0) cb(null, true)
+          else self._verifyNow(node.links, node, cb)
+        })
+      }
+      else self._verifyNow(node.links, node, cb)
     }
   })
   this._verify = opts.verify
@@ -36,6 +45,7 @@ function TrustLog (db, opts) {
     sub(db, 'i', { valueEncoding: 'json' }),
     indexer
   )
+  if (this._id && opts.sign) this.trust(this._id)
 
   function indexer (row, tx, next) {
     if (row.value && row.value.op === 'trust') {
@@ -267,4 +277,13 @@ function noop () {}
 function nextTick (cb) {
   var args = [].slice.call(arguments, 1)
   process.nextTick(function () { cb.apply(null, args) })
+}
+
+function count (stream, cb) {
+  cb = once(cb)
+  var count = 0
+  stream.once('error', cb)
+  stream.pipe(through.obj(write, end))
+  function write (row, enc, next) { count ++; next() }
+  function end () { cb(null, count) }
 }
