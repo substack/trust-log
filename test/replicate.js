@@ -14,10 +14,6 @@ test('replicate', function (t) {
   var kp1 = sodium.crypto_sign_keypair()
   var kp2 = sodium.crypto_sign_keypair()
  
-  var expectedVerify = [ true ]
-  var keys = [ kp1, kp2 ]
-  var expectedKeys = keys.slice()
-
   var tlog0 = trust(memdb(), hsodium(sodium, kp0, {
     publicKey: function (id, cb) { tlog0.isTrusted(id, cb) }
   }))

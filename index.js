@@ -6,6 +6,7 @@ var through = require('through2')
 var readonly = require('read-only-stream')
 var collect = require('collect-stream')
 var once = require('once')
+var has = require('has')
 var isarray = require('isarray')
 var defined = require('defined')
 var concat = require('concat-map')
@@ -163,6 +164,9 @@ TrustLog.prototype._trustedNow = function (heads, cb) {
   if (self._id) output.push({ id: self._id })
  
   if (!heads) heads = []
+  var seen = {}
+  if (self._id) seen[self._id.toString('hex')] = true
+ 
   if (!isarray(heads)) heads = [heads]
   var pending = 1
   heads.forEach(function (head) {
@@ -170,9 +174,11 @@ TrustLog.prototype._trustedNow = function (heads, cb) {
     var tx = self.dex.open(head)
     var r = tx.createReadStream({ gt: 'trust!', lt: 'trust!~' })
     var tr = r.pipe(through.obj(function (row, enc, next) {
-      this.push({
-        id: Buffer(row.key.split('!')[1], 'hex')
-      })
+      var hexid = row.key.split('!')[1]
+      if (!has(seen, hexid)) {
+        this.push({ id: Buffer(hexid, 'hex') })
+        seen[hexid] = true
+      }
       next()
     }))
     tr.pipe(through.obj(function (row, enc, next) {

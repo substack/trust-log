@@ -8,13 +8,12 @@ var hyperlog = require('hyperlog')
 var through = require('through2')
 
 test('verify', function (t) {
-  t.plan(6)
+  t.plan(9)
   var kp0 = sodium.crypto_sign_keypair()
   var kp1 = sodium.crypto_sign_keypair()
   var kp2 = sodium.crypto_sign_keypair()
-  var expectedVerify = [ true ]
   var keys = [ kp1, kp2 ]
-  var expectedKeys = keys.slice()
+  var expectedKeys = keys.concat(kp0)
  
   var tlog = trust(memdb(), {
     identity: kp0.publicKey,
@@ -27,32 +26,48 @@ test('verify', function (t) {
       cb(null, m && eq(m, Buffer(node.key, 'hex')))
     }
   })
-  var hlog = hyperlog(memdb(), {
+  var hlog0 = hyperlog(memdb(), {
     valueEncoding: 'json',
     identity: kp1.publicKey,
     sign: function (node, cb) {
       var bkey = Buffer(node.key, 'hex')
-      cb(null, sodium.crypto_sign(bkey, keys.shift().secretKey))
+      cb(null, sodium.crypto_sign(bkey, kp1.secretKey))
     },
-    verify: function (node, cb) {
-      tlog.verify(node, cb)
-    }
+    verify: function (node, cb) { cb(null, true) }
   })
-  hlog.add(null, 'beep', function (err, node) {
+  var hlog1 = hyperlog(memdb(), {
+    valueEncoding: 'json',
+    identity: kp2.publicKey,
+    sign: function (node, cb) {
+      var bkey = Buffer(node.key, 'hex')
+      cb(null, sodium.crypto_sign(bkey, kp2.secretKey))
+    },
+    verify: function (node, cb) { cb(null, true) }
+  })
+
+  hlog0.add(null, 'beep', function (err, node) {
     t.ifError(err)
-    hlog.add([node.key], 'boop', function (err, node) {
-      t.ifError(err)
+    var r0 = hlog0.replicate()
+    var r1 = hlog1.replicate()
+    r0.pipe(r1).pipe(r0)
+    r0.once('finish', function () {
+      hlog1.add([node.key], 'boop', function (err, node) {
+        t.ifError(err)
+        var pending = 2
+        tlog.trust(kp1.publicKey, done)
+        tlog.trust(kp2.publicKey, done)
+        function done () { if (--pending === 0) verify() }
+      })
     })
   })
  
-  tlog.trust(kp1.publicKey, verify)
   function verify (err) {
     t.ifError(err)
-    hlog.createReadStream().pipe(through.obj(write))
+    hlog1.createReadStream().pipe(through.obj(write))
     function write (row, enc, next) {
       tlog.verify(row, function (err, ok) {
         t.ifError(err)
-        t.equal(ok, expectedVerify.shift(), 'verify')
+        t.equal(ok, true)
         t.deepEqual(
           row.identity,
           expectedKeys.shift().publicKey,

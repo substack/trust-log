@@ -9,6 +9,7 @@
     "concat-map": "0.0.1",
     "defined": "^1.0.0",
     "duplexify": "^3.4.2",
+    "has": "^1.0.1",
     "hyperlog": "^4.5.0",
     "hyperlog-index": "^3.1.0",
     "isarray": "~0.0.1",
