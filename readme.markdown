@@ -70,6 +70,9 @@ Create a new trusted `log` with a levelup handle `db` and:
 * `opts.sign` - a signing function for the desired crypto
 * `opts.verify` - a verification function for the desired crypto
 
+Optionally set `opts.tofu` to `true` to set "trust on first use" mode.
+This mode trusts the first replicated key during replication if the log is empty.
+
 Using [sodium](https://npmjs.com/package/sodium) you can do:
 
 ```
