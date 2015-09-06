@@ -73,6 +73,10 @@ Create a new trusted `log` with a levelup handle `db` and:
 Optionally set `opts.tofu` to `true` to set "trust on first use" mode.
 This mode trusts the first replicated key during replication if the log is empty.
 
+If `opts.identity` is not provided, trust will be written into a secondary
+location that is not signed. This is useful for relay servers that have no
+identity of their own but need to trust other keys.
+
 Using [sodium](https://npmjs.com/package/sodium) you can do:
 
 ```
