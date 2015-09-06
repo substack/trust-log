@@ -20,6 +20,7 @@ function TrustLog (db, opts) {
   if (!opts) opts = {}
   this._tofu = opts.tofu
   this._id = defined(opts.identity, opts.id, null)
+  this._local = sub(db, 'z')
   this.log = hyperlog(sub(db, 'l'), {
     valueEncoding: 'json',
     identity: this._id,
@@ -35,8 +36,7 @@ function TrustLog (db, opts) {
           else if (n === 0) cb(null, true)
           else self._verifyNow(node.links, node, cb)
         })
-      }
-      else self._verifyNow(node.links, node, cb)
+      } else self._verifyNow(node.links, node, cb)
     }
   })
   this._verify = opts.verify
@@ -88,6 +88,9 @@ TrustLog.prototype.trust = function (node, cb) {
     node = { id: node.toString('hex') }
   }
   if (!cb) cb = noop
+  if (!self._id) {
+    return self._local.put(node.id, '0', cb)
+  }
   var value = {
     op: 'trust',
     id: node.id,
@@ -113,6 +116,9 @@ TrustLog.prototype.revoke = function (node, cb) {
     node = { id: node.toString('hex') }
   }
   if (!cb) cb = noop
+  if (!self._id) {
+    return self._local.del(node.id, '0', cb)
+  }
  
   var value = {
     op: 'revoke',
@@ -149,11 +155,14 @@ TrustLog.prototype.trusted = function (from, cb) {
       })
     })
   } else load(from)
- 
+
   function load (from) {
-    self.dex.ready(from, function () {
+    if (from.length) self.dex.ready(from, onready)
+    else onready()
+
+    function onready () {
       dup.setReadable(self._trustedNow(from, cb))
-    })
+    }
   }
   return readonly(dup)
 }
@@ -168,7 +177,14 @@ TrustLog.prototype._trustedNow = function (heads, cb) {
   if (self._id) seen[self._id.toString('hex')] = true
  
   if (!isarray(heads)) heads = [heads]
-  var pending = 1
+  var pending = 2
+  self._local.createReadStream()
+    .pipe(through.obj(function (row, enc, next) {
+      seen[row.key] = true
+      output.push({ id: Buffer(row.key, 'hex') })
+      next()
+    }, done))
+
   heads.forEach(function (head) {
     pending ++
     var tx = self.dex.open(head)
